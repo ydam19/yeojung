@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(npx vite:*)",
+      "Bash(echo \"DONE: $?\")"
+    ]
+  }
+}

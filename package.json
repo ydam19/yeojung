@@ -1,0 +1,33 @@
+{
+  "name": "yeojung",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build && ait build",
+    "preview": "vite preview",
+    "deploy": "ait deploy"
+  },
+  "devDependencies": {
+    "@apps-in-toss/devtools": "^3.0.2",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/leaflet": "^1.9.22",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react-swc": "^4.3.3",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.0"
+  },
+  "dependencies": {
+    "@apps-in-toss/web-framework": "latest",
+    "date-fns": "^4.4.0",
+    "leaflet": "^1.9.4",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-leaflet": "^5.0.0",
+    "react-router-dom": "^7.18.2",
+    "uuid": "^14.0.1"
+  }
+}
