@@ -64,6 +64,18 @@ export function useTripStore() {
     }))
   }
 
+  function addPlacesBulk(tripId: string, dayIndex: number, places: Omit<Place, 'id' | 'order'>[]) {
+    setTrips(trips.map(t => {
+      if (t.id !== tripId) return t
+      const days = t.days.map((d, i) => {
+        if (i !== dayIndex) return d
+        const newPlaces: Place[] = places.map((p, idx) => ({ ...p, id: uuid(), order: d.places.length + idx }))
+        return { ...d, places: [...d.places, ...newPlaces] }
+      })
+      return { ...t, days, updatedAt: new Date().toISOString() }
+    }))
+  }
+
   function updatePlace(tripId: string, dayIndex: number, placeId: string, patch: Partial<Place>) {
     setTrips(trips.map(t => {
       if (t.id !== tripId) return t
@@ -120,5 +132,5 @@ export function useTripStore() {
     }))
   }
 
-  return { trips, getTrip, createTrip, updateTrip, deleteTrip, addPlace, updatePlace, deletePlace, reorderPlaces, addCollaborator, removeCollaborator }
+  return { trips, getTrip, createTrip, updateTrip, deleteTrip, addPlace, addPlacesBulk, updatePlace, deletePlace, reorderPlaces, addCollaborator, removeCollaborator }
 }

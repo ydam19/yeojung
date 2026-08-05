@@ -7,7 +7,11 @@
       "Bash(./node_modules/.bin/tsc --noEmit)",
       "Bash(echo \"exit:$?\")",
       "Bash(npx vite:*)",
-      "Bash(echo \"DONE: $?\")"
+      "Bash(echo \"DONE: $?\")",
+      "Bash(ls /Users/kimyedamsmac/Desktop/yeojung/dist/assets/*.js)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(git -C /Users/kimyedamsmac/Desktop/yeojung init)",
+      "Bash(git -C /Users/kimyedamsmac/Desktop/yeojung add .)"
     ]
   }
 }

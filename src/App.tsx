@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
+import { SplashScreen } from './components/SplashScreen'
 import { HomePage } from './pages/HomePage'
 import { TripCreatePage } from './pages/TripCreatePage'
 import { TripDetailPage } from './pages/TripDetailPage'
@@ -10,8 +12,19 @@ import { DiaryListPage } from './pages/DiaryListPage'
 import { DiaryEntryPage } from './pages/DiaryEntryPage'
 import { DiaryEditPage } from './pages/DiaryEditPage'
 import { SharePage } from './pages/SharePage'
+import { RegionSelectPage } from './pages/RegionSelectPage'
+import { AttractionSelectPage } from './pages/AttractionSelectPage'
+import { PlaceReviewPage } from './pages/PlaceReviewPage'
 
 const router = createBrowserRouter([
+  {
+    element: <AppShell showBottomNav={false} />,
+    children: [
+      { path: '/discover', element: <RegionSelectPage /> },
+      { path: '/discover/review', element: <PlaceReviewPage /> },
+      { path: '/discover/:regionId', element: <AttractionSelectPage /> },
+    ],
+  },
   {
     element: <AppShell />,
     children: [
@@ -37,5 +50,12 @@ const router = createBrowserRouter([
 ])
 
 export default function App() {
-  return <RouterProvider router={router} />
+  const [splashDone, setSplashDone] = useState(false)
+
+  return (
+    <>
+      {!splashDone && <SplashScreen onDone={() => setSplashDone(true)} />}
+      <RouterProvider router={router} />
+    </>
+  )
 }
