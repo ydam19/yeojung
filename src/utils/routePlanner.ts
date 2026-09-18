@@ -1,4 +1,11 @@
 import { haversineDistance } from './geoUtils'
+import {
+  fetchTransitLeg,
+  getTransitLegCached,
+  prefetchTransitTimes,
+} from './kakaoTransit'
+export type { TransitLeg } from './kakaoTransit'
+import type { TransitLeg } from './kakaoTransit'
 
 // ─── 타입 ────────────────────────────────────────────────────────────────────
 
@@ -20,6 +27,16 @@ export const INTENSITY_LABELS: Record<Intensity, string> = {
   packed: '빡빡함',
 }
 
+/** 숙소 고정 제약 조건 (특정 날짜의 출발·도착지) */
+export interface AccomConstraint {
+  id: string
+  name: string
+  lat: number
+  lng: number
+  checkIn: string
+  checkOut: string
+}
+
 export interface DayPlan {
   /** 1-indexed 일차 */
   day: number
@@ -31,6 +48,14 @@ export interface DayPlan {
   totalMinutes: number
   /** 여행 강도 */
   intensity: Intensity
+  /** 해당 날 숙소 (있으면 출발·귀환지로 고정됨) */
+  accommodation?: AccomConstraint
+  /**
+   * 대중교통 모드에서의 구간별 이동 정보
+   * - 숙소 있음: [accom→p0, p0→p1, ..., pN→accom]  (places.length+1 개)
+   * - 숙소 없음: [p0→p1, ..., p(N-1)→pN]           (places.length-1 개)
+   */
+  transitLegs?: TransitLeg[]
 }
 
 export interface RoutePlan {
@@ -73,12 +98,26 @@ function travelMinutes(km: number): number {
 }
 
 /**
- * 총 소요 시간(분)으로 여행 강도를 계산
+ * 총 소요 시간(분)과 환승 횟수(대중교통 전용)로 여행 강도를 계산.
+ * transferCount 제공 시: 6회 초과 → 빡빡, 3회 초과 → 최소 보통.
+ * 시간 기준과 환승 기준 중 더 높은(빡빡한) 등급 반환.
  */
-function calcIntensity(totalMinutes: number): Intensity {
-  if (totalMinutes < INTENSITY_THRESHOLDS.relaxed) return 'relaxed'
-  if (totalMinutes < INTENSITY_THRESHOLDS.normal)  return 'normal'
-  return 'packed'
+function calcIntensity(totalMinutes: number, transferCount?: number): Intensity {
+  const RANK: Record<Intensity, number> = { relaxed: 0, normal: 1, packed: 2 }
+
+  const timeGrade: Intensity =
+    totalMinutes < INTENSITY_THRESHOLDS.relaxed ? 'relaxed' :
+    totalMinutes < INTENSITY_THRESHOLDS.normal  ? 'normal'  :
+    'packed'
+
+  if (transferCount == null) return timeGrade
+
+  const transferGrade: Intensity =
+    transferCount > 6 ? 'packed' :
+    transferCount > 3 ? 'normal' :
+    'relaxed'
+
+  return RANK[transferGrade] > RANK[timeGrade] ? transferGrade : timeGrade
 }
 
 // ─── K-means 클러스터링 ──────────────────────────────────────────────────────
@@ -176,6 +215,35 @@ function kMeansClusters(places: PlaceInput[], k: number): PlaceInput[][] {
 // ─── 최근접 이웃 정렬 (greedy TSP) ──────────────────────────────────────────
 
 /**
+ * 임의의 시작 좌표에서 출발하는 최근접 이웃 정렬
+ * 숙소처럼 좌표는 있지만 PlaceInput이 아닌 출발지에 사용
+ */
+function nearestNeighborSortFrom(
+  start: { lat: number; lng: number },
+  places: PlaceInput[],
+): PlaceInput[] {
+  if (places.length === 0) return []
+  const unvisited = [...places]
+  const sorted: PlaceInput[] = []
+  let curLat = start.lat
+  let curLng = start.lng
+
+  while (unvisited.length > 0) {
+    let nearestIdx = 0
+    let nearestDist = Infinity
+    unvisited.forEach((p, i) => {
+      const d = haversineDistance({ lat: curLat, lng: curLng }, { lat: p.lat, lng: p.lng })
+      if (d < nearestDist) { nearestDist = d; nearestIdx = i }
+    })
+    const next = unvisited.splice(nearestIdx, 1)[0]
+    sorted.push(next)
+    curLat = next.lat
+    curLng = next.lng
+  }
+  return sorted
+}
+
+/**
  * 출발점을 기준으로 매 단계 가장 가까운 미방문 장소를 선택
  * 시작 장소: 위도 기준 최남단 (지도상 아래쪽 → 위로 이동)
  */
@@ -208,13 +276,32 @@ function nearestNeighborSort(places: PlaceInput[]): PlaceInput[] {
 
 // ─── DayPlan 생성 ────────────────────────────────────────────────────────────
 
-function buildDayPlan(day: number, unsortedPlaces: PlaceInput[]): DayPlan {
-  const places = nearestNeighborSort(unsortedPlaces)
-
-  // 이동 거리 합산 (연속된 장소 사이)
+function buildDayPlan(day: number, unsortedPlaces: PlaceInput[], accom?: AccomConstraint): DayPlan {
+  let places: PlaceInput[]
   let totalDistanceKm = 0
-  for (let i = 0; i < places.length - 1; i++) {
-    totalDistanceKm += distKm(places[i], places[i + 1])
+
+  if (accom && unsortedPlaces.length > 0) {
+    // 숙소를 출발지로 고정 → 최근접 이웃 정렬
+    places = nearestNeighborSortFrom(accom, unsortedPlaces)
+
+    // 거리 계산: 숙소 → 장소1 → ... → 장소N → 숙소
+    totalDistanceKm += haversineDistance(
+      { lat: accom.lat, lng: accom.lng },
+      { lat: places[0].lat, lng: places[0].lng },
+    )
+    for (let i = 0; i < places.length - 1; i++) {
+      totalDistanceKm += distKm(places[i], places[i + 1])
+    }
+    totalDistanceKm += haversineDistance(
+      { lat: places[places.length - 1].lat, lng: places[places.length - 1].lng },
+      { lat: accom.lat, lng: accom.lng },
+    )
+  } else {
+    // 숙소 없음 → 기존 최남단 출발 로직
+    places = nearestNeighborSort(unsortedPlaces)
+    for (let i = 0; i < places.length - 1; i++) {
+      totalDistanceKm += distKm(places[i], places[i + 1])
+    }
   }
 
   // 이동 시간 + 체류 시간
@@ -228,6 +315,7 @@ function buildDayPlan(day: number, unsortedPlaces: PlaceInput[]): DayPlan {
     totalDistanceKm: Math.round(totalDistanceKm * 10) / 10,
     totalMinutes,
     intensity: calcIntensity(totalMinutes),
+    ...(accom && { accommodation: accom }),
   }
 }
 
@@ -236,11 +324,16 @@ function buildDayPlan(day: number, unsortedPlaces: PlaceInput[]): DayPlan {
 /**
  * 장소 목록과 여행 일수를 받아 일자별 최적 동선을 반환
  *
- * @param places   장소 목록 (위도·경도·체류시간 포함)
- * @param numDays  여행 일수 (박+1)
- * @returns        일자별 동선 계획 및 전체 통계
+ * @param places             장소 목록 (위도·경도·체류시간 포함)
+ * @param numDays            여행 일수 (박+1)
+ * @param dayAccommodations  일자 인덱스(0-based) → 숙소 제약 (출발·귀환지 고정)
+ * @returns                  일자별 동선 계획 및 전체 통계
  */
-export function planRoute(places: PlaceInput[], numDays: number): RoutePlan {
+export function planRoute(
+  places: PlaceInput[],
+  numDays: number,
+  dayAccommodations?: Map<number, AccomConstraint>,
+): RoutePlan {
   if (places.length === 0) {
     return {
       days: Array.from({ length: numDays }, (_, i) => ({
@@ -249,6 +342,7 @@ export function planRoute(places: PlaceInput[], numDays: number): RoutePlan {
         totalDistanceKm: 0,
         totalMinutes: 0,
         intensity: 'relaxed' as Intensity,
+        ...(dayAccommodations?.get(i) && { accommodation: dayAccommodations.get(i) }),
       })),
       totalDistanceKm: 0,
       totalMinutes: 0,
@@ -262,12 +356,12 @@ export function planRoute(places: PlaceInput[], numDays: number): RoutePlan {
   redistributeEmptyClusters(clusters, numDays)
 
   const days: DayPlan[] = clusters.map((cluster, i) =>
-    buildDayPlan(i + 1, cluster)
+    buildDayPlan(i + 1, cluster, dayAccommodations?.get(i))
   )
 
   // 빈 일자 패딩 (장소 < numDays인 경우)
   while (days.length < numDays) {
-    days.push(buildDayPlan(days.length + 1, []))
+    days.push(buildDayPlan(days.length + 1, [], dayAccommodations?.get(days.length)))
   }
 
   const totalDistanceKm =
@@ -304,6 +398,128 @@ function redistributeEmptyClusters(
   }
 }
 
+// ─── 날짜 배정 계산 (이동수단과 독립) ────────────────────────────────────────
+
+/**
+ * k-means 클러스터링으로 장소를 날짜별로 배정하고 ID 배열을 반환.
+ * 이동수단과 무관하게 초기값 생성에만 사용.
+ */
+export function computeAutoAssignment(places: PlaceInput[], numDays: number): string[][] {
+  if (places.length === 0) return Array.from({ length: numDays }, () => [])
+  const k = Math.min(numDays, places.length)
+  const clusters = kMeansClusters(places, k)
+  redistributeEmptyClusters(clusters, numDays)
+  while (clusters.length < numDays) clusters.push([])
+  return clusters.map(cluster => cluster.map(p => p.id))
+}
+
+/**
+ * 수동 모드: 사용자 입력 순서 그대로 날짜별 균등 배분.
+ */
+export function computeManualAssignment(places: PlaceInput[], numDays: number): string[][] {
+  if (places.length === 0) return Array.from({ length: numDays }, () => [])
+  const perDay = Math.ceil(places.length / numDays)
+  return Array.from({ length: numDays }, (_, i) =>
+    places.slice(i * perDay, (i + 1) * perDay).map(p => p.id)
+  )
+}
+
+/**
+ * 날짜 배정(string[][])을 기반으로 동선 계획을 생성.
+ * preserveOrder=true: 배정 내 순서 유지 (수동 모드).
+ * preserveOrder=false: nearest-neighbor 재정렬 (자동 모드).
+ */
+export function planRouteFromAssignment(
+  assignment: string[][],
+  allPlaces: PlaceInput[],
+  numDays: number,
+  dayAccommodations?: Map<number, AccomConstraint>,
+  preserveOrder = false,
+): RoutePlan {
+  const placeMap = new Map(allPlaces.map(p => [p.id, p]))
+  const days: DayPlan[] = assignment.map((ids, i) => {
+    const cluster = ids.map(id => placeMap.get(id)).filter(Boolean) as PlaceInput[]
+    if (preserveOrder) {
+      // 순서 유지 — 거리 계산만 수행, 재정렬 없음
+      const accom = dayAccommodations?.get(i)
+      let dist = 0
+      if (accom && cluster.length > 0) {
+        dist += haversineDistance({ lat: accom.lat, lng: accom.lng }, { lat: cluster[0].lat, lng: cluster[0].lng })
+        for (let j = 0; j < cluster.length - 1; j++) {
+          dist += haversineDistance({ lat: cluster[j].lat, lng: cluster[j].lng }, { lat: cluster[j+1].lat, lng: cluster[j+1].lng })
+        }
+        dist += haversineDistance({ lat: cluster[cluster.length-1].lat, lng: cluster[cluster.length-1].lng }, { lat: accom.lat, lng: accom.lng })
+      } else {
+        for (let j = 0; j < cluster.length - 1; j++) {
+          dist += haversineDistance({ lat: cluster[j].lat, lng: cluster[j].lng }, { lat: cluster[j+1].lat, lng: cluster[j+1].lng })
+        }
+      }
+      const travelMins = Math.round((dist / 30) * 60)
+      const stayMins = cluster.reduce((s, p) => s + p.stayMinutes, 0)
+      const total = travelMins + stayMins
+      return {
+        day: i + 1,
+        places: cluster,
+        totalDistanceKm: Math.round(dist * 10) / 10,
+        totalMinutes: total,
+        intensity: calcIntensity(total),
+        ...(accom && { accommodation: accom }),
+      }
+    }
+    return buildDayPlan(i + 1, cluster, dayAccommodations?.get(i))
+  })
+
+  // numDays보다 assignment가 짧으면 패딩
+  while (days.length < numDays) {
+    days.push(buildDayPlan(days.length + 1, [], dayAccommodations?.get(days.length)))
+  }
+
+  const totalDistanceKm = Math.round(days.reduce((s, d) => s + d.totalDistanceKm, 0) * 10) / 10
+  const totalMinutes = days.reduce((s, d) => s + d.totalMinutes, 0)
+  return { days, totalDistanceKm, totalMinutes }
+}
+
+/**
+ * 날짜 배정(string[][])을 기반으로 대중교통 동선 계획 생성 (비동기).
+ */
+export async function planRouteTransitFromAssignment(
+  assignment: string[][],
+  allPlaces: PlaceInput[],
+  numDays: number,
+  dayAccommodations?: Map<number, AccomConstraint>,
+): Promise<RoutePlan> {
+  const placeMap = new Map(allPlaces.map(p => [p.id, p]))
+  const clusters = assignment.map(ids =>
+    ids.map(id => placeMap.get(id)).filter(Boolean) as PlaceInput[]
+  )
+
+  // 모든 클러스터 대중교통 시간 병렬 pre-fetch
+  await Promise.all(
+    clusters.map((cluster, dayIdx) => {
+      const accom = dayAccommodations?.get(dayIdx)
+      const points: Array<{ lat: number; lng: number }> = [
+        ...(accom ? [accom] : []),
+        ...cluster,
+      ]
+      return prefetchTransitTimes(points)
+    })
+  )
+
+  const dayPromises: Promise<DayPlan>[] = [
+    ...clusters.map((cluster, i) =>
+      buildTransitDayPlan(i + 1, cluster, dayAccommodations?.get(i))
+    ),
+    ...Array.from({ length: Math.max(0, numDays - clusters.length) }, (_, j) =>
+      buildTransitDayPlan(clusters.length + j + 1, [], dayAccommodations?.get(clusters.length + j))
+    ),
+  ]
+
+  const days = await Promise.all(dayPromises)
+  const totalDistanceKm = Math.round(days.reduce((s, d) => s + d.totalDistanceKm, 0) * 10) / 10
+  const totalMinutes = days.reduce((s, d) => s + d.totalMinutes, 0)
+  return { days, totalDistanceKm, totalMinutes }
+}
+
 // ─── 포맷 헬퍼 ───────────────────────────────────────────────────────────────
 
 /** 분 → "X시간 Y분" 문자열 */
@@ -318,4 +534,167 @@ export function formatMinutes(minutes: number): string {
 /** 하루 가용 시간 대비 사용 비율 (0~1) */
 export function dayUsageRatio(totalMinutes: number): number {
   return Math.min(totalMinutes / DAILY_AVAILABLE_MINUTES, 1)
+}
+
+// ─── 대중교통 모드 ────────────────────────────────────────────────────────────
+
+/**
+ * places[placeIdx] → places[placeIdx+1] 구간의 TransitLeg 반환.
+ * 숙소가 있으면 transitLegs[0]이 accom→places[0]이므로 offset=1.
+ */
+export function getDayTransitLeg(dayPlan: DayPlan, placeIdx: number): TransitLeg | undefined {
+  if (!dayPlan.transitLegs) return undefined
+  const offset = dayPlan.accommodation ? 1 : 0
+  return dayPlan.transitLegs[placeIdx + offset]
+}
+
+// 대중교통 시간 기반 nearest-neighbor (캐시에서 동기 조회 — pre-fetch 이후 사용)
+function nearestNeighborTransit(
+  start: { lat: number; lng: number },
+  places: PlaceInput[],
+): PlaceInput[] {
+  if (places.length === 0) return []
+  const unvisited = [...places]
+  const sorted: PlaceInput[] = []
+  let cur = start
+
+  while (unvisited.length > 0) {
+    let bestIdx = 0
+    let bestSecs = Infinity
+    for (let i = 0; i < unvisited.length; i++) {
+      const cached = getTransitLegCached(cur.lat, cur.lng, unvisited[i].lat, unvisited[i].lng)
+      const secs =
+        cached != null
+          ? cached.durationSecs
+          : (haversineDistance(cur, unvisited[i]) / 30) * 3600
+      if (secs < bestSecs) { bestSecs = secs; bestIdx = i }
+    }
+    const next = unvisited.splice(bestIdx, 1)[0]
+    sorted.push(next)
+    cur = { lat: next.lat, lng: next.lng }
+  }
+  return sorted
+}
+
+async function buildTransitDayPlan(
+  day: number,
+  unsortedPlaces: PlaceInput[],
+  accom?: AccomConstraint,
+): Promise<DayPlan> {
+  if (unsortedPlaces.length === 0) {
+    return {
+      day, places: [], totalDistanceKm: 0, totalMinutes: 0, intensity: 'relaxed',
+      ...(accom && { accommodation: accom }),
+      transitLegs: [],
+    }
+  }
+
+  // 1. Nearest-neighbor 정렬 (캐시 동기 조회)
+  let places: PlaceInput[]
+  if (accom) {
+    places = nearestNeighborTransit(accom, unsortedPlaces)
+  } else {
+    const startIdx = unsortedPlaces.reduce(
+      (minI, p, i) => (p.lat < unsortedPlaces[minI].lat ? i : minI), 0,
+    )
+    const start = unsortedPlaces[startIdx]
+    const rest = unsortedPlaces.filter((_, i) => i !== startIdx)
+    places = [start, ...nearestNeighborTransit(start, rest)]
+  }
+
+  // 2. 이동 시퀀스 구성: [accom?, p0, …, pN, accom?]
+  const seq: Array<{ lat: number; lng: number }> = [
+    ...(accom ? [accom] : []),
+    ...places,
+    ...(accom && places.length > 0 ? [accom] : []),
+  ]
+
+  let totalDistKm = 0
+  let totalTransitSecs = 0
+  const transitLegs: TransitLeg[] = []
+
+  for (let i = 0; i < seq.length - 1; i++) {
+    const f = seq[i]
+    const t = seq[i + 1]
+    const leg = await fetchTransitLeg(f.lat, f.lng, t.lat, t.lng)
+    if (leg) {
+      transitLegs.push(leg)
+      totalTransitSecs += leg.durationSecs
+      totalDistKm += leg.sections.reduce((s, sec) => s + sec.distance / 1000, 0)
+    } else {
+      const km = haversineDistance(f, t)
+      totalDistKm += km
+      const secs = Math.round((km / 30) * 3600)
+      totalTransitSecs += secs
+      transitLegs.push({ durationSecs: secs, transferCount: 0, fare: 0, sections: [] })
+    }
+  }
+
+  const stayMins = places.reduce((s, p) => s + p.stayMinutes, 0)
+  const totalMinutes = Math.round(totalTransitSecs / 60) + stayMins
+  const totalTransfers = transitLegs.reduce((s, leg) => s + leg.transferCount, 0)
+
+  return {
+    day, places,
+    totalDistanceKm: Math.round(totalDistKm * 10) / 10,
+    totalMinutes,
+    intensity: calcIntensity(totalMinutes, totalTransfers),
+    ...(accom && { accommodation: accom }),
+    transitLegs,
+  }
+}
+
+/**
+ * 대중교통 기반 동선 계획 (비동기).
+ * 클러스터링은 기존과 동일, 일자 내 정렬만 실제 대중교통 시간 사용.
+ * API 실패 구간은 haversine 거리 기반 시간으로 fallback.
+ */
+export async function planRouteTransit(
+  places: PlaceInput[],
+  numDays: number,
+  dayAccommodations?: Map<number, AccomConstraint>,
+): Promise<RoutePlan> {
+  if (places.length === 0) {
+    return {
+      days: Array.from({ length: numDays }, (_, i) => ({
+        day: i + 1, places: [], totalDistanceKm: 0, totalMinutes: 0, intensity: 'relaxed' as Intensity,
+        ...(dayAccommodations?.get(i) && { accommodation: dayAccommodations.get(i) }),
+        transitLegs: [],
+      })),
+      totalDistanceKm: 0, totalMinutes: 0,
+    }
+  }
+
+  const k = Math.min(numDays, places.length)
+  const clusters = kMeansClusters(places, k)
+  redistributeEmptyClusters(clusters, numDays)
+
+  // 모든 클러스터의 대중교통 경로 일괄 pre-fetch (병렬)
+  await Promise.all(
+    clusters.map((cluster, dayIdx) => {
+      const accom = dayAccommodations?.get(dayIdx)
+      const points: Array<{ lat: number; lng: number }> = [
+        ...(accom ? [accom] : []),
+        ...cluster,
+      ]
+      return prefetchTransitTimes(points)
+    }),
+  )
+
+  // 일자별 DayPlan 빌드 (캐시 사용 → 사실상 동기)
+  const dayPromises: Promise<DayPlan>[] = [
+    ...clusters.map((cluster, i) =>
+      buildTransitDayPlan(i + 1, cluster, dayAccommodations?.get(i)),
+    ),
+    // 빈 일자 패딩
+    ...Array.from({ length: Math.max(0, numDays - clusters.length) }, (_, j) =>
+      buildTransitDayPlan(clusters.length + j + 1, [], dayAccommodations?.get(clusters.length + j)),
+    ),
+  ]
+
+  const days = await Promise.all(dayPromises)
+  const totalDistanceKm = Math.round(days.reduce((s, d) => s + d.totalDistanceKm, 0) * 10) / 10
+  const totalMinutes = days.reduce((s, d) => s + d.totalMinutes, 0)
+
+  return { days, totalDistanceKm, totalMinutes }
 }

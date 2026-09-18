@@ -2,7 +2,9 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { getPlacesByRegion, searchPlaces, CATEGORY_LABELS, CATEGORY_EMOJI, REGION_CENTERS } from '../data/places'
 import { usePlanStore } from '../store/usePlanStore'
-import { loadKakaoSdk, HAS_KAKAO_KEY } from '../utils/kakaoLoader'
+import { haversineDistance } from '../utils/geoUtils'
+import { searchKeyword, HAS_LOCAL_KEY } from '../utils/kakaoLocalSearch'
+import type { LocalSearchResult } from '../utils/kakaoLocalSearch'
 import type { PlaceCategory, PlaceItem } from '../data/places'
 
 const REGION_NAMES: Record<string, string> = {
@@ -21,6 +23,7 @@ export function PlaceSelectPage() {
   const regionName = REGION_NAMES[regionId] ?? regionId
 
   const { plan, setRegion, togglePlace, isSelected } = usePlanStore()
+  const accom = plan.planAccommodation
 
   // regionId / days가 바뀌면 플랜 초기화
   useEffect(() => {
@@ -33,42 +36,59 @@ export function PlaceSelectPage() {
   const [query, setQuery] = useState('')
   const [showCustomSearch, setShowCustomSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<kakao.maps.services.PlaceSearchResult[]>([])
+  const [searchResults, setSearchResults] = useState<LocalSearchResult[]>([])
   const [searching, setSearching] = useState(false)
-  const [kakaoReady, setKakaoReady] = useState(false)
+  // REST API 기반 — 비동기 SDK 로드 불필요, 키 존재 여부만 확인
+  const kakaoReady = HAS_LOCAL_KEY
   const searchInputRef = useRef<HTMLInputElement>(null)
 
-  // 카카오 SDK 미리 로드 (직접 추가 기능용)
-  useEffect(() => {
-    if (!HAS_KAKAO_KEY) return
-    loadKakaoSdk().then(() => setKakaoReady(true)).catch(() => {})
-  }, [])
-
   const recommendedPlaces = useMemo(() => {
-    if (query.trim()) return searchPlaces(regionId, query)
-    const all = getPlacesByRegion(regionId)
-    return activeCategory === 'all' ? all : all.filter(p => p.category === activeCategory)
-  }, [regionId, query, activeCategory])
+    // 직접 추가한 장소 (id가 'custom-'으로 시작)
+    const customPlaces = plan.selectedPlaces.filter(p => p.id.startsWith('custom-'))
 
-  function handleKakaoSearch() {
+    // 검색어가 있으면 이름으로 필터, 없으면 전체 표시
+    const customFiltered = query.trim()
+      ? customPlaces.filter(p => p.name.includes(query.trim()))
+      : customPlaces
+
+    const raw = query.trim()
+      ? searchPlaces(regionId, query)
+      : (() => {
+          const all = getPlacesByRegion(regionId)
+          return activeCategory === 'all' ? all : all.filter(p => p.category === activeCategory)
+        })()
+
+    // 커스텀 장소를 앞에 병합 (중복 제거는 불필요 — 정적 목록에 custom- ID는 없음)
+    const combined = [...customFiltered, ...raw]
+
+    // 숙소 좌표가 있으면 숙소 기준 가까운 순으로 정렬
+    if (!accom) return combined
+    return [...combined].sort((a, b) => {
+      // 좌표 없는 장소는 뒤로
+      if (!a.lat || !a.lng) return 1
+      if (!b.lat || !b.lng) return -1
+      const da = haversineDistance({ lat: accom.lat, lng: accom.lng }, { lat: a.lat, lng: a.lng })
+      const db = haversineDistance({ lat: accom.lat, lng: accom.lng }, { lat: b.lat, lng: b.lng })
+      return da - db
+    })
+  }, [regionId, query, activeCategory, accom, plan.selectedPlaces])
+
+  async function handleKakaoSearch() {
     if (!kakaoReady || !searchQuery.trim()) return
     setSearching(true)
     setSearchResults([])
 
-    const ps = new kakao.maps.services.Places()
     const center = REGION_CENTERS[regionId]
-    const options: kakao.maps.services.PlaceSearchOptions = center
-      ? { location: new kakao.maps.LatLng(center.lat, center.lng), radius: 50000 }
-      : {}
-
-    ps.keywordSearch(searchQuery, (results, status) => {
-      setSearching(false)
-      if (status === kakao.maps.services.Status.OK) setSearchResults(results)
-      else setSearchResults([])
-    }, options)
+    const results = await searchKeyword(searchQuery, {
+      center: center ?? undefined,
+      radius: center ? 20000 : undefined,
+      size: 15,
+    })
+    setSearching(false)
+    setSearchResults(results)
   }
 
-  function handleSelectSearchResult(result: kakao.maps.services.PlaceSearchResult) {
+  function handleSelectSearchResult(result: LocalSearchResult) {
     const place: PlaceItem = {
       id: `custom-${result.id}`,
       regionId,
@@ -248,9 +268,23 @@ export function PlaceSelectPage() {
         ) : (
           <div className="flex flex-col gap-2">
             {!query && (
-              <p className="text-xs text-gray-400 font-medium mb-1">
-                {activeCategory === 'all' ? '추천 장소' : `${CATEGORY_LABELS[activeCategory]} 추천`}
-              </p>
+              accom ? (
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs text-blue-500 font-semibold">
+                    📍 {accom.name} 기준 가까운 순
+                  </p>
+                  <button
+                    onClick={() => navigate(-1)}
+                    className="text-xs text-gray-400 hover:text-gray-600"
+                  >
+                    숙소 변경
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 font-medium mb-1">
+                  {activeCategory === 'all' ? '추천 장소' : `${CATEGORY_LABELS[activeCategory]} 추천`}
+                </p>
+              )
             )}
             {recommendedPlaces.map(place => {
               const selected = isSelected(place.id)

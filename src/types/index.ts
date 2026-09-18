@@ -56,6 +56,17 @@ export interface Collaborator {
   addedAt: string
 }
 
+export interface Accommodation {
+  id: string
+  name: string
+  address?: string
+  latitude: number
+  longitude: number
+  checkIn: string
+  checkOut: string
+  pricePerNight: number
+}
+
 export interface Trip {
   id: string
   title: string
@@ -64,6 +75,7 @@ export interface Trip {
   startDate: string
   endDate: string
   days: TripDay[]
+  accommodations: Accommodation[]
   collaborators: Collaborator[]
   createdAt: string
   updatedAt: string
