@@ -11,7 +11,16 @@
       "Bash(ls /Users/kimyedamsmac/Desktop/yeojung/dist/assets/*.js)",
       "Bash(echo \"EXIT:$?\")",
       "Bash(git -C /Users/kimyedamsmac/Desktop/yeojung init)",
-      "Bash(git -C /Users/kimyedamsmac/Desktop/yeojung add .)"
+      "Bash(git -C /Users/kimyedamsmac/Desktop/yeojung add .)",
+      "Bash(git:*)",
+      "Bash(node_modules/.bin/vitest:*)",
+      "Bash(npm test:*)",
+      "Bash(echo \"DONE $?\")",
+      "Bash(ls /Users/kimyedamsmac/Desktop/yeojung/.env*)",
+      "Bash(node:*)",
+      "Bash(pkill -f \"vite\")",
+      "Bash(npm run:*)",
+      "Bash(wait)"
     ]
   }
 }
