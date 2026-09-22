@@ -41,7 +41,7 @@ export function PlaceReviewPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <TopBar title="선택한 장소" onBack={() => navigate(-1)} />
+      <TopBar title="선택한 장소" />
 
       <div className="flex-1 overflow-y-auto p-4">
         <p className="text-sm text-gray-400 mb-4 px-1">총 {selected.length}개 장소 · 순서를 확인해보세요</p>
