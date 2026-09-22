@@ -125,20 +125,6 @@ export function PlaceSelectPage() {
 
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* 헤더 */}
-      <div className="px-5 pt-10 pb-3 flex items-center gap-3">
-        <button
-          onClick={() => navigate(-1)}
-          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-        >
-          <span className="text-xl text-gray-600">←</span>
-        </button>
-        <div>
-          <h1 className="text-lg font-bold text-gray-900">{regionName} 장소 선택</h1>
-          <p className="text-xs text-gray-400">{days}박{days + 1}일 · 최적 동선으로 정리해드려요</p>
-        </div>
-      </div>
-
       {/* 검색창 */}
       <div className="px-5 pb-3">
         <div className="flex items-center gap-2 bg-gray-100 rounded-xl px-4 py-3">
@@ -273,12 +259,6 @@ export function PlaceSelectPage() {
                   <p className="text-xs text-blue-500 font-semibold">
                     📍 {accom.name} 기준 가까운 순
                   </p>
-                  <button
-                    onClick={() => navigate(-1)}
-                    className="text-xs text-gray-400 hover:text-gray-600"
-                  >
-                    숙소 변경
-                  </button>
                 </div>
               ) : (
                 <p className="text-xs text-gray-400 font-medium mb-1">

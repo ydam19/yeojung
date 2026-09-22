@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { REGIONS, ALL_ATTRACTIONS, type Attraction } from '../data/attractions'
-import { TopBar } from '../components/layout/TopBar'
 import { naverMapSearchUrl } from '../utils/naverMaps'
 import { PLACE_CATEGORY_EMOJI } from '../types'
 
@@ -46,8 +45,6 @@ export function AttractionSelectPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <TopBar title={`${region.emoji} ${region.name} 명소`} />
-
       {/* 검색창 */}
       <div className="bg-white px-4 py-3 border-b border-gray-100">
         <div className="flex items-center gap-2 bg-gray-100 rounded-xl px-4 py-2.5">

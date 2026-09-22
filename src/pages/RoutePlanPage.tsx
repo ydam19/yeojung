@@ -1066,25 +1066,10 @@ export function RoutePlanPage() {
       )}
 
       <div className="flex flex-col h-full bg-white">
-        {/* 헤더 */}
-        <div className="px-5 pt-10 pb-3 flex items-center gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors flex-shrink-0"
-          >
-            <span className="text-xl text-gray-600">←</span>
-          </button>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold text-gray-900">동선 결과</h1>
-            {plan.regionName && (
-              <p className="text-xs text-gray-400">
-                {plan.regionName} · {plan.days === 0 ? '당일치기' : `${plan.days}박${numDays}일`} · {plan.selectedPlaces.length}개 장소 · {plan.routeMode === 'manual' ? '내 순서' : '자동 최적화'}
-              </p>
-            )}
-          </div>
-          {/* 이동수단 토글 */}
-          {HAS_TRANSIT_KEY && (
-            <div className="flex bg-gray-100 rounded-xl p-1 gap-1 flex-shrink-0">
+        {/* 이동수단 토글 */}
+        {HAS_TRANSIT_KEY && (
+          <div className="px-5 pt-4 pb-2 flex justify-end">
+            <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
               <button
                 onClick={() => setTravelMode('car')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
@@ -1106,8 +1091,8 @@ export function RoutePlanPage() {
                 🚌 대중교통
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* 대중교통 계산 중 */}
         {isComputing && (
@@ -1123,12 +1108,6 @@ export function RoutePlanPage() {
             <p className="text-sm text-gray-400 text-center">
               선택한 장소가 없어요.<br />이전 화면에서 장소를 추가해주세요.
             </p>
-            <button
-              onClick={() => navigate(-1)}
-              className="px-5 py-2.5 bg-blue-50 text-blue-500 text-sm font-semibold rounded-full"
-            >
-              장소 선택하러 가기
-            </button>
           </div>
         ) : (
           <>

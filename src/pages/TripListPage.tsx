@@ -141,7 +141,7 @@ function SortablePlace({
 export function TripListPage() {
   const navigate = useNavigate()
   const { plan, togglePlace, setRouteMode, setDayAssignment } = usePlanStore()
-  const { regionName, days, selectedPlaces, routeMode, regionId } = plan
+  const { days, selectedPlaces, routeMode, regionId } = plan
   const numDays = days + 1
 
   // PlaceInput 변환 (좌표 필요)
@@ -288,24 +288,6 @@ export function TripListPage() {
 
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* 헤더 */}
-      <div className="px-5 pt-10 pb-4 flex items-center gap-3">
-        <button
-          onClick={() => navigate(-1)}
-          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
-        >
-          <span className="text-xl text-gray-600">←</span>
-        </button>
-        <div>
-          <h1 className="text-lg font-bold text-gray-900">내 여행 리스트</h1>
-          {regionName && (
-            <p className="text-xs text-gray-400">
-              {regionName} · {days === 0 ? '당일치기' : `${days}박${numDays}일`}
-            </p>
-          )}
-        </div>
-      </div>
-
       {/* 장소 목록 */}
       <div className="flex-1 overflow-y-auto px-5">
         {isEmpty ? (
@@ -314,12 +296,6 @@ export function TripListPage() {
             <p className="text-gray-400 text-sm text-center">
               아직 추가한 장소가 없어요.<br />이전 화면에서 장소를 선택해주세요.
             </p>
-            <button
-              onClick={() => navigate(-1)}
-              className="px-5 py-2.5 bg-blue-50 text-blue-500 text-sm font-semibold rounded-full"
-            >
-              장소 선택하러 가기
-            </button>
           </div>
         ) : (
           <div className="pb-4">
@@ -423,12 +399,6 @@ export function TripListPage() {
             className="w-full py-4 rounded-2xl text-base font-bold bg-blue-500 text-white active:scale-95 transition-transform"
           >
             🗺️ 동선 짜기
-          </button>
-          <button
-            onClick={() => navigate(-1)}
-            className="w-full py-2 text-sm text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            장소 더 추가하기
           </button>
         </div>
       )}

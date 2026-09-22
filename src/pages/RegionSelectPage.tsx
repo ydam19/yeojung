@@ -166,12 +166,6 @@ export function RegionSelectPage() {
 
   return (
     <div className="flex flex-col h-full bg-white">
-      {/* 헤더 */}
-      <div className="px-5 pt-12 pb-5">
-        <h1 className="text-2xl font-bold text-gray-900">어디로 떠날까요?</h1>
-        <p className="text-sm text-gray-400 mt-1">여행지를 선택하고 기간을 입력해주세요</p>
-      </div>
-
       {/* 검색창 */}
       <div className="px-5 pb-4">
         <div className="flex items-center gap-2 bg-gray-100 rounded-xl px-4 py-3">

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTripStore } from '../store/useTripStore'
-import { TopBar } from '../components/layout/TopBar'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 
@@ -33,7 +32,6 @@ export function TripEditPage() {
 
   return (
     <div className="flex flex-col min-h-full">
-      <TopBar title="여행 편집" />
       <div className="flex-1 p-5 flex flex-col gap-5">
         <Input label="여행 이름" value={title} onChange={e => setTitle(e.target.value)} />
         <Input label="여행지" value={destination} onChange={e => setDestination(e.target.value)} />

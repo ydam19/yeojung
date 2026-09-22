@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useTripStore } from '../store/useTripStore'
 import { searchKeyword, HAS_LOCAL_KEY } from '../utils/kakaoLocalSearch'
 import type { LocalSearchResult } from '../utils/kakaoLocalSearch'
-import { TopBar } from '../components/layout/TopBar'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
@@ -154,8 +153,6 @@ export function AccommodationPage() {
 
   return (
     <div className="flex flex-col min-h-full bg-gray-50">
-      <TopBar title="숙소 관리" />
-
       <div className="flex-1 overflow-y-auto p-4">
         {accommodations.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">

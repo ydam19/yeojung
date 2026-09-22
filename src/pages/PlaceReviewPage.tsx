@@ -1,5 +1,4 @@
 import { useNavigate, useLocation } from 'react-router-dom'
-import { TopBar } from '../components/layout/TopBar'
 import { useTripStore } from '../store/useTripStore'
 import { naverMapSearchUrl } from '../utils/naverMaps'
 import { PLACE_CATEGORY_EMOJI } from '../types'
@@ -41,8 +40,6 @@ export function PlaceReviewPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <TopBar title="선택한 장소" />
-
       <div className="flex-1 overflow-y-auto p-4">
         <p className="text-sm text-gray-400 mb-4 px-1">총 {selected.length}개 장소 · 순서를 확인해보세요</p>
 

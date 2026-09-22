@@ -65,11 +65,6 @@ export function HomePage() {
 
   return (
     <div className="flex flex-col min-h-full">
-      <div className="bg-white px-5 pt-12 pb-5 border-b border-gray-100">
-        <h1 className="text-2xl font-bold text-gray-900">여정</h1>
-        <p className="text-sm text-gray-500 mt-1">나의 여행 기록</p>
-      </div>
-
       <div className="flex-1 p-4">
         {sorted.length === 0 ? (
           <EmptyState
