@@ -69,8 +69,9 @@ function _key(fLat: number, fLng: number, tLat: number, tLng: number): string {
 }
 
 const REST_KEY = import.meta.env.VITE_KAKAO_REST_KEY as string | undefined
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
 export const HAS_TRANSIT_KEY =
-  !!REST_KEY && REST_KEY !== '여기에_카카오_REST_키_입력'
+  (!!REST_KEY && REST_KEY !== '여기에_카카오_REST_키_입력') || API_BASE !== ''
 
 // ─── API 타입 → 내부 모드 변환 ───────────────────────────────────────────────
 /**
@@ -102,14 +103,13 @@ export async function fetchTransitLeg(
   if (_cache.has(key)) return _cache.get(key) ?? null
 
   try {
-    const base = import.meta.env.DEV
-      ? '/api/kakao-transit'
-      : 'https://dapi.kakao.com'
-
-    const url = `${base}/v2/routing/publictraffic?start_x=${fLng}&start_y=${fLat}&end_x=${tLng}&end_y=${tLat}`
-    const res = await fetch(url, {
-      headers: { Authorization: `KakaoAK ${REST_KEY}` },
-    })
+    const url = `${API_BASE}/api/kakao-transit?start_x=${fLng}&start_y=${fLat}&end_x=${tLng}&end_y=${tLat}`
+    const res = await fetch(
+      url,
+      import.meta.env.DEV && REST_KEY
+        ? { headers: { Authorization: `KakaoAK ${REST_KEY}` } }
+        : {},
+    )
 
     if (!res.ok) {
       if (import.meta.env.DEV) {

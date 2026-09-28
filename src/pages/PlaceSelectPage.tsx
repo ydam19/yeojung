@@ -11,6 +11,10 @@ const REGION_NAMES: Record<string, string> = {
   jeju: '제주도', busan: '부산', gyeongju: '경주',
   seoul: '서울', gangwon: '강원도', jeonju: '전주',
   incheon: '인천', daegu: '대구',
+  daejeon: '대전', gwangju: '광주', ulsan: '울산', sejong: '세종',
+  gangneung: '강릉', sokcho: '속초', chuncheon: '춘천',
+  yeosu: '여수', tongyeong: '통영', buyeo: '부여',
+  andong: '안동', pohang: '포항', suncheon: '순천',
 }
 
 const ALL_CATEGORIES: PlaceCategory[] = ['attraction', 'restaurant', 'cafe', 'activity']
@@ -20,9 +24,16 @@ export function PlaceSelectPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const days = Number(searchParams.get('days') ?? 2)
-  const regionName = REGION_NAMES[regionId] ?? regionId
+  // 커스텀 지역일 때 RegionSelectPage에서 전달한 중심 좌표
+  const urlLat = searchParams.get('lat')
+  const urlLng = searchParams.get('lng')
+  const regionCenter: { lat: number; lng: number } | undefined =
+    REGION_CENTERS[regionId] ??
+    (urlLat && urlLng ? { lat: Number(urlLat), lng: Number(urlLng) } : undefined)
 
   const { plan, setRegion, togglePlace, isSelected } = usePlanStore()
+  // 커스텀 지역(custom-...)은 REGION_NAMES에 없으므로 plan.regionName을 fallback으로 사용
+  const regionName = REGION_NAMES[regionId] ?? (plan.regionName || regionId)
   const accom = plan.planAccommodation
 
   // regionId / days가 바뀌면 플랜 초기화
@@ -42,8 +53,47 @@ export function PlaceSelectPage() {
   const kakaoReady = HAS_LOCAL_KEY
   const searchInputRef = useRef<HTMLInputElement>(null)
 
+  // 정적 데이터가 없는 지역 → Kakao로 자동 추천 장소 조회
+  const [autoPlaces, setAutoPlaces] = useState<PlaceItem[]>([])
+  const [autoLoading, setAutoLoading] = useState(false)
+
+  useEffect(() => {
+    const hasStatic = getPlacesByRegion(regionId).length > 0
+    if (hasStatic) { setAutoPlaces([]); return }
+    if (!regionName || regionName === regionId) return
+
+    let cancelled = false
+
+    const center: { lat: number; lng: number } | undefined =
+      REGION_CENTERS[regionId] ??
+      (urlLat && urlLng ? { lat: Number(urlLat), lng: Number(urlLng) } : undefined)
+
+    setAutoLoading(true)
+    setAutoPlaces([])
+    searchKeyword(`${regionName} 관광명소`, {
+      center,
+      radius: center ? 20000 : undefined,
+      size: 10,
+    }).then(results => {
+      if (cancelled) return
+      setAutoPlaces(results.map(r => ({
+        id: `auto-${r.id}`,
+        regionId,
+        name: r.place_name,
+        category: 'attraction' as PlaceCategory,
+        description: r.road_address_name || r.address_name,
+        tags: ['카카오 추천'],
+        lat: Number(r.y),
+        lng: Number(r.x),
+      })))
+      setAutoLoading(false)
+    })
+
+    return () => { cancelled = true }
+  }, [regionId, urlLat, urlLng, regionName]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const recommendedPlaces = useMemo(() => {
-    // 직접 추가한 장소 (id가 'custom-'으로 시작)
+    // 직접 추가한 장소는 custom-만 (auto-는 autoPlaces에서 이미 raw에 포함되므로 제외)
     const customPlaces = plan.selectedPlaces.filter(p => p.id.startsWith('custom-'))
 
     // 검색어가 있으면 이름으로 필터, 없으면 전체 표시
@@ -54,12 +104,21 @@ export function PlaceSelectPage() {
     const raw = query.trim()
       ? searchPlaces(regionId, query)
       : (() => {
-          const all = getPlacesByRegion(regionId)
-          return activeCategory === 'all' ? all : all.filter(p => p.category === activeCategory)
+          const staticAll = getPlacesByRegion(regionId)
+          // 정적 데이터 없으면 자동 검색 결과 사용
+          const base = staticAll.length > 0 ? staticAll : autoPlaces
+          return activeCategory === 'all' ? base : base.filter(p => p.category === activeCategory)
         })()
 
-    // 커스텀 장소를 앞에 병합 (중복 제거는 불필요 — 정적 목록에 custom- ID는 없음)
-    const combined = [...customFiltered, ...raw]
+    // 커스텀 장소를 앞에 병합한 뒤 이름 기준 중복 제거 (안전망)
+    const seen = new Set<string>()
+    const combined: PlaceItem[] = []
+    for (const p of [...customFiltered, ...raw]) {
+      if (!seen.has(p.name)) {
+        seen.add(p.name)
+        combined.push(p)
+      }
+    }
 
     // 숙소 좌표가 있으면 숙소 기준 가까운 순으로 정렬
     if (!accom) return combined
@@ -71,17 +130,16 @@ export function PlaceSelectPage() {
       const db = haversineDistance({ lat: accom.lat, lng: accom.lng }, { lat: b.lat, lng: b.lng })
       return da - db
     })
-  }, [regionId, query, activeCategory, accom, plan.selectedPlaces])
+  }, [regionId, query, activeCategory, accom, plan.selectedPlaces, autoPlaces])
 
   async function handleKakaoSearch() {
     if (!kakaoReady || !searchQuery.trim()) return
     setSearching(true)
     setSearchResults([])
 
-    const center = REGION_CENTERS[regionId]
     const results = await searchKeyword(searchQuery, {
-      center: center ?? undefined,
-      radius: center ? 20000 : undefined,
+      center: regionCenter,
+      radius: regionCenter ? 20000 : undefined,
       size: 15,
     })
     setSearching(false)
@@ -249,7 +307,11 @@ export function PlaceSelectPage() {
         </div>
 
         {/* 추천 장소 목록 */}
-        {recommendedPlaces.length === 0 ? (
+        {autoLoading && recommendedPlaces.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <p className="text-sm text-gray-400">{regionName} 추천 장소 불러오는 중...</p>
+          </div>
+        ) : recommendedPlaces.length === 0 ? (
           <p className="text-center text-gray-400 text-sm mt-10">검색 결과가 없어요</p>
         ) : (
           <div className="flex flex-col gap-2">

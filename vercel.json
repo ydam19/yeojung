@@ -1,0 +1,4 @@
+{
+  "buildCommand": "echo 'API-only deployment — no frontend build'",
+  "outputDirectory": "public"
+}

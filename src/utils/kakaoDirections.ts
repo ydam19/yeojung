@@ -15,9 +15,10 @@
  */
 
 const REST_KEY = import.meta.env.VITE_KAKAO_REST_KEY as string | undefined
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
 
 export const HAS_DIRECTIONS_KEY =
-  !!REST_KEY && REST_KEY !== '여기에_카카오_REST_키_입력'
+  (!!REST_KEY && REST_KEY !== '여기에_카카오_REST_키_입력') || API_BASE !== ''
 
 // ─── 캐시 ─────────────────────────────────────────────────────────────────────
 
@@ -43,10 +44,6 @@ async function _callDirections(
 ): Promise<[number, number][] | null> {
   if (!HAS_DIRECTIONS_KEY) return null
 
-  const base = import.meta.env.DEV
-    ? '/api/kakao-directions'
-    : 'https://apis-navi.kakaomobility.com'
-
   const params = new URLSearchParams({
     origin:      `${origin.lng},${origin.lat}`,
     destination: `${destination.lng},${destination.lat}`,
@@ -56,12 +53,15 @@ async function _callDirections(
     params.set('waypoints', waypoints.map(w => `${w.lng},${w.lat}`).join('|'))
   }
 
-  const url = `${base}/v1/directions?${params}`
+  const url = `${API_BASE}/api/kakao-directions?${params}`
 
   try {
-    const res = await fetch(url, {
-      headers: { Authorization: `KakaoAK ${REST_KEY}` },
-    })
+    const res = await fetch(
+      url,
+      import.meta.env.DEV && REST_KEY
+        ? { headers: { Authorization: `KakaoAK ${REST_KEY}` } }
+        : {},
+    )
 
     if (!res.ok) {
       if (import.meta.env.DEV) {

@@ -13,10 +13,11 @@
  */
 
 const REST_KEY = import.meta.env.VITE_KAKAO_REST_KEY as string | undefined
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
 
-/** VITE_KAKAO_REST_KEY가 설정되어 있으면 true */
+/** REST 키가 설정되어 있거나, Vercel 프록시(VITE_API_BASE_URL)가 설정되어 있으면 true */
 export const HAS_LOCAL_KEY =
-  !!REST_KEY && REST_KEY !== '여기에_카카오_REST_키_입력'
+  (!!REST_KEY && REST_KEY !== '여기에_카카오_REST_키_입력') || API_BASE !== ''
 
 /** Kakao Local Search API 응답 문서 1건 */
 export interface LocalSearchResult {
@@ -62,13 +63,15 @@ export async function searchKeyword(
     params.set('radius', String(opts.radius))
   }
 
-  const base = import.meta.env.DEV ? '/api/kakao-local' : 'https://dapi.kakao.com'
-  const url = `${base}/v2/local/search/keyword.json?${params}`
+  const url = `${API_BASE}/api/kakao-local?${params}`
 
   try {
-    const res = await fetch(url, {
-      headers: { Authorization: `KakaoAK ${REST_KEY}` },
-    })
+    const res = await fetch(
+      url,
+      import.meta.env.DEV && REST_KEY
+        ? { headers: { Authorization: `KakaoAK ${REST_KEY}` } }
+        : {},
+    )
     if (!res.ok) {
       if (import.meta.env.DEV) {
         const text = await res.text().catch(() => '')

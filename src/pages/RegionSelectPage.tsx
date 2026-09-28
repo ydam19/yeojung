@@ -14,14 +14,26 @@ interface Region {
 }
 
 const REGIONS: Region[] = [
-  { id: 'jeju',     name: '제주도', emoji: '🌊', description: '에메랄드빛 바다와 한라산' },
-  { id: 'busan',    name: '부산',   emoji: '🌉', description: '해운대, 광안리, 국제시장' },
-  { id: 'gyeongju', name: '경주',   emoji: '🏛️', description: '신라의 역사와 문화유산' },
-  { id: 'seoul',    name: '서울',   emoji: '🏙️', description: '도심 속 다양한 즐길거리' },
-  { id: 'gangwon',  name: '강원도', emoji: '🏔️', description: '설악산, 속초, 강릉 바다' },
-  { id: 'jeonju',   name: '전주',   emoji: '🍚', description: '한옥마을과 전통 한식' },
-  { id: 'incheon',  name: '인천',   emoji: '✈️', description: '차이나타운과 섬 여행' },
-  { id: 'daegu',    name: '대구',   emoji: '🌹', description: '근대 골목과 팔공산' },
+  { id: 'seoul',     name: '서울',  emoji: '🏙️', description: '도심 속 궁궐, 야경, 한강' },
+  { id: 'busan',     name: '부산',  emoji: '🌉', description: '해운대, 광안리, 감천문화마을' },
+  { id: 'jeju',      name: '제주도',emoji: '🌊', description: '에메랄드빛 바다와 한라산' },
+  { id: 'gyeongju',  name: '경주',  emoji: '🏛️', description: '신라의 역사와 문화유산' },
+  { id: 'jeonju',    name: '전주',  emoji: '🍚', description: '한옥마을과 전통 한식' },
+  { id: 'daegu',     name: '대구',  emoji: '🌹', description: '근대 골목과 팔공산' },
+  { id: 'incheon',   name: '인천',  emoji: '✈️', description: '차이나타운, 강화도, 섬 여행' },
+  { id: 'daejeon',   name: '대전',  emoji: '🌳', description: '한밭수목원, 성심당, 엑스포' },
+  { id: 'gwangju',   name: '광주',  emoji: '🎨', description: '문화예술, 무등산, 5·18' },
+  { id: 'ulsan',     name: '울산',  emoji: '🐋', description: '대왕암, 간절곶, 반구대' },
+  { id: 'gangneung', name: '강릉',  emoji: '☕', description: '경포해변, 안목 커피거리' },
+  { id: 'sokcho',    name: '속초',  emoji: '🏔️', description: '설악산, 속초 해수욕장, 아바이마을' },
+  { id: 'chuncheon', name: '춘천',  emoji: '🦆', description: '남이섬, 닭갈비 골목, 소양강' },
+  { id: 'yeosu',     name: '여수',  emoji: '⛵', description: '여수 밤바다, 오동도, 돌산도' },
+  { id: 'tongyeong', name: '통영',  emoji: '🚡', description: '미륵산 케이블카, 한산도, 동피랑' },
+  { id: 'andong',    name: '안동',  emoji: '🏘️', description: '하회마을, 병산서원, 찜닭' },
+  { id: 'pohang',    name: '포항',  emoji: '🌅', description: '호미곶, 구룡포 근대문화역사거리' },
+  { id: 'suncheon',  name: '순천',  emoji: '🌿', description: '순천만 국가정원, 낙안읍성' },
+  { id: 'buyeo',     name: '부여',  emoji: '🏯', description: '백제문화단지, 낙화암, 부소산성' },
+  { id: 'sejong',    name: '세종',  emoji: '🏙️', description: '세종호수공원, 국립세종수목원' },
 ]
 
 type Step = 'select' | 'accom-prompt' | 'accom-form'
@@ -47,6 +59,11 @@ export function RegionSelectPage() {
   const [query, setQuery] = useState('')
   const [selectedRegion, setSelectedRegion] = useState<Region | null>(null)
   const [days, setDays] = useState(1)
+  /** 커스텀 지역 선택 시 다음 페이지로 넘길 중심 좌표 */
+  const [customCenter, setCustomCenter] = useState<{ lat: number; lng: number } | null>(null)
+  // 상단 검색창 → 프리셋 미매칭 시 Kakao API 결과
+  const [kakaoResults, setKakaoResults] = useState<LocalSearchResult[]>([])
+  const [kakaoSearching, setKakaoSearching] = useState(false)
 
   // ── 단계 관리 ───────────────────────────────────────────────────────────────
   const [step, setStep] = useState<Step>('select')
@@ -67,9 +84,39 @@ export function RegionSelectPage() {
     ? REGIONS.filter(r => r.name.includes(query.trim()) || r.description.includes(query.trim()))
     : REGIONS
 
+  // 프리셋 매칭 없을 때 Kakao 자동 검색 (debounce 500ms)
+  useEffect(() => {
+    if (!query.trim() || filtered.length > 0 || !kakaoReady) {
+      setKakaoResults([])
+      setKakaoSearching(false)
+      return
+    }
+    setKakaoSearching(true)
+    const timer = setTimeout(async () => {
+      const results = await searchKeyword(query.trim(), { size: 5 })
+      setKakaoResults(results)
+      setKakaoSearching(false)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [query, filtered.length, kakaoReady]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── 이동 목적지 ─────────────────────────────────────────────────────────────
   function goToPlaceSelect() {
-    navigate(`/region/${selectedRegion!.id}?days=${days}`)
+    const base = `/region/${selectedRegion!.id}?days=${days}`
+    const url = customCenter ? `${base}&lat=${customCenter.lat}&lng=${customCenter.lng}` : base
+    navigate(url)
+  }
+
+  function handleSelectCustomRegion(result: LocalSearchResult) {
+    setSelectedRegion({
+      id: `custom-${result.id}`,
+      name: result.place_name,
+      emoji: '📍',
+      description: result.road_address_name || result.address_name,
+    })
+    setCustomCenter({ lat: Number(result.y), lng: Number(result.x) })
+    setQuery('')        // 검색창 초기화 → 전체 목록으로 복귀
+    setKakaoResults([])
   }
 
   // ── Step: select → accom-prompt ─────────────────────────────────────────────
@@ -185,16 +232,34 @@ export function RegionSelectPage() {
 
       {/* 지역 리스트 */}
       <div className="flex-1 overflow-y-auto px-5">
-        {filtered.length === 0 ? (
-          <p className="text-center text-gray-400 text-sm mt-10">검색 결과가 없어요</p>
-        ) : (
+        {/* 커스텀 지역 선택 중일 때 상단 배지 */}
+        {selectedRegion?.id.startsWith('custom-') && (
+          <div className="mb-3 flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
+            <span className="text-blue-500">📍</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-blue-800 truncate">{selectedRegion.name}</p>
+              {selectedRegion.description && (
+                <p className="text-xs text-blue-400 truncate">{selectedRegion.description}</p>
+              )}
+            </div>
+            <button
+              onClick={() => { setSelectedRegion(null); setCustomCenter(null) }}
+              className="text-xs text-blue-400 hover:text-blue-600 shrink-0"
+            >
+              변경
+            </button>
+          </div>
+        )}
+
+        {/* 프리셋 목록 */}
+        {filtered.length > 0 && (
           <div className="flex flex-col gap-2">
             {filtered.map(region => {
               const isSelected = selectedRegion?.id === region.id
               return (
                 <button
                   key={region.id}
-                  onClick={() => { setSelectedRegion(region); setStep('select') }}
+                  onClick={() => { setSelectedRegion(region); setCustomCenter(null); setStep('select') }}
                   className={`flex items-center gap-4 w-full px-4 py-4 rounded-2xl border-2 text-left transition-all ${
                     isSelected ? 'border-blue-500 bg-blue-50' : 'border-transparent bg-gray-50 hover:bg-gray-100'
                   }`}
@@ -210,6 +275,46 @@ export function RegionSelectPage() {
                 </button>
               )
             })}
+          </div>
+        )}
+
+        {/* 프리셋 미매칭: Kakao 검색 결과 */}
+        {filtered.length === 0 && query.trim() && (
+          <div className="flex flex-col gap-2">
+            {kakaoSearching ? (
+              <p className="text-center text-gray-400 text-sm mt-10">검색 중...</p>
+            ) : kakaoResults.length > 0 ? (
+              <>
+                <p className="text-xs text-gray-400 font-medium mb-1 px-1">검색 결과</p>
+                <div className="flex flex-col gap-1 border border-gray-100 rounded-xl overflow-hidden">
+                  {kakaoResults.map(result => {
+                    const isSelected = selectedRegion?.id === `custom-${result.id}`
+                    return (
+                      <button
+                        key={result.id}
+                        onClick={() => handleSelectCustomRegion(result)}
+                        className={`flex items-center gap-3 px-4 py-3 text-left transition-colors ${
+                          isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        <span className="text-xl shrink-0">📍</span>
+                        <div className="flex-1 min-w-0">
+                          <p className={`font-semibold text-sm ${isSelected ? 'text-blue-600' : 'text-gray-900'}`}>
+                            {result.place_name}
+                          </p>
+                          <p className="text-xs text-gray-400 truncate mt-0.5">
+                            {result.road_address_name || result.address_name}
+                          </p>
+                        </div>
+                        {isSelected && <span className="text-blue-500 shrink-0">✓</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              </>
+            ) : (
+              <p className="text-center text-gray-400 text-sm mt-10">검색 결과가 없어요</p>
+            )}
           </div>
         )}
       </div>

@@ -35,8 +35,9 @@ export interface PlaceItem {
   lng?: number
 }
 
-/** 지역 중심 좌표 (좌표 없는 장소의 fallback) */
+/** 지역 중심 좌표 (좌표 없는 장소의 fallback + Kakao 장소 검색 반경 기준) */
 export const REGION_CENTERS: Record<string, { lat: number; lng: number }> = {
+  // 기존 정적 데이터 보유 지역
   jeju:     { lat: 33.3617, lng: 126.5292 },
   busan:    { lat: 35.1796, lng: 129.0756 },
   gyeongju: { lat: 35.8354, lng: 129.2191 },
@@ -45,6 +46,20 @@ export const REGION_CENTERS: Record<string, { lat: number; lng: number }> = {
   jeonju:   { lat: 35.8147, lng: 127.1530 },
   incheon:  { lat: 37.4563, lng: 126.7052 },
   daegu:    { lat: 35.8714, lng: 128.6014 },
+  // 신규 추가 지역 (Kakao 자동 검색용 center)
+  daejeon:   { lat: 36.3504, lng: 127.3845 },
+  gwangju:   { lat: 35.1595, lng: 126.8526 },
+  ulsan:     { lat: 35.5384, lng: 129.3114 },
+  sejong:    { lat: 36.4800, lng: 127.2890 },
+  gangneung: { lat: 37.7519, lng: 128.8760 },
+  sokcho:    { lat: 38.2070, lng: 128.5918 },
+  chuncheon: { lat: 37.8747, lng: 127.7341 },
+  yeosu:     { lat: 34.7604, lng: 127.6622 },
+  tongyeong: { lat: 34.8544, lng: 128.4330 },
+  buyeo:     { lat: 36.2753, lng: 126.9102 },
+  andong:    { lat: 36.5684, lng: 128.7294 },
+  pohang:    { lat: 36.0190, lng: 129.3435 },
+  suncheon:  { lat: 34.9506, lng: 127.4872 },
 }
 
 const PLACES: PlaceItem[] = [
