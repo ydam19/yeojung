@@ -1243,7 +1243,7 @@ export function RoutePlanPage() {
                                   className="w-full accent-blue-500"
                                   style={{ height: '20px' }}
                                 />
-                                <div className="flex justify-between text-[10px] text-gray-300 mt-0.5">
+                                <div className="flex justify-between text-[10px] text-gray-300">
                                   <span>30분</span>
                                   <span>4시간</span>
                                 </div>
@@ -1259,13 +1259,13 @@ export function RoutePlanPage() {
                                   <div className="flex items-center gap-2 ml-10 mb-1">
                                     <div className="w-px h-4 bg-blue-200 -ml-3.5" />
                                     <span className="text-xs text-gray-400">
-                                      약 {travelMins}분 · {leg.fare.toLocaleString()}원
+                                      편도 {travelMins}분 · {leg.fare.toLocaleString()}원
                                     </span>
                                   </div>
                                 ) : (
                                   <div className="flex items-center gap-2 ml-10 mb-1">
                                     <div className="w-px h-4 bg-blue-200 -ml-3.5" />
-                                    <span className="text-xs text-gray-400">약 {travelMins}분</span>
+                                    <span className="text-xs text-gray-400">편도 {travelMins}분</span>
                                   </div>
                                 )}
                                 <TransitLegDetail leg={leg} />
@@ -1274,7 +1274,7 @@ export function RoutePlanPage() {
                               <div className="flex items-center gap-3 pl-3.5 py-1">
                                 <div className="w-[1px] h-6 bg-blue-200 ml-3" />
                                 <span className="text-xs text-gray-400">
-                                  이동 {km.toFixed(1)}km · 약 {travelMins}분
+                                  이동 {km.toFixed(1)}km · 편도 {travelMins}분
                                 </span>
                               </div>
                             )
@@ -1309,13 +1309,13 @@ export function RoutePlanPage() {
                                       <div className="flex items-center gap-2 ml-10 mb-1">
                                         <div className="w-px h-4 bg-green-200 -ml-3.5" />
                                         <span className="text-xs text-gray-400">
-                                          약 {returnMins}분 · {returnLeg.fare.toLocaleString()}원
+                                          편도 {returnMins}분 · {returnLeg.fare.toLocaleString()}원
                                         </span>
                                       </div>
                                     ) : (
                                       <div className="flex items-center gap-2 ml-10 mb-1">
                                         <div className="w-px h-4 bg-green-200 -ml-3.5" />
-                                        <span className="text-xs text-gray-400">약 {returnMins}분</span>
+                                        <span className="text-xs text-gray-400">편도 {returnMins}분</span>
                                       </div>
                                     )}
                                     <TransitLegDetail leg={returnLeg} />
@@ -1324,7 +1324,7 @@ export function RoutePlanPage() {
                                   <div className="flex items-center gap-3 pl-3.5 py-1">
                                     <div className="w-[1px] h-6 bg-green-200 ml-3" />
                                     <span className="text-xs text-gray-400">
-                                      귀환 {returnKm.toFixed(1)}km · 약 {returnMins}분
+                                      귀환 {returnKm.toFixed(1)}km · 편도 {returnMins}분
                                     </span>
                                   </div>
                                 )}

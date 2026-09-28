@@ -25,7 +25,8 @@
       "Bash(grep -n \"onClick={\\(\\) => navigate\\(-1\\)}\\\\|onClick={\\(\\) => setStep\\\\|onClick={onClose}\" /Users/kimyedamsmac/Desktop/yeojung/src/pages/*.tsx)",
       "Bash(vercel --version)",
       "Bash(ls -la /Users/kimyedamsmac/Desktop/yeojung/.env*)",
-      "Bash(xxd /Users/kimyedamsmac/Desktop/yeojung/yeojung.ait)"
+      "Bash(xxd /Users/kimyedamsmac/Desktop/yeojung/yeojung.ait)",
+      "mcp__ide__executeCode"
     ]
   }
 }

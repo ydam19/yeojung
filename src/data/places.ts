@@ -81,8 +81,8 @@ const PLACES: PlaceItem[] = [
   { id: 'busan-4', regionId: 'busan', name: '국제시장 씨앗호떡',  category: 'restaurant', lat: 35.0993, lng: 129.0268, description: '부산 여행자라면 필수, 바삭한 씨앗호떡',    tags: ['길거리음식', '국제시장'] },
   { id: 'busan-5', regionId: 'busan', name: '자갈치시장',         category: 'restaurant', lat: 35.0975, lng: 129.0302, description: '싱싱한 회와 해산물의 성지',              tags: ['회', '해산물'] },
   { id: 'busan-6', regionId: 'busan', name: '카페 아홉산숲',      category: 'cafe',       lat: 35.2630, lng: 129.2250, description: '대나무 숲 속 비밀스러운 카페',            tags: ['숲뷰', '힐링'] },
-  { id: 'busan-7', regionId: 'busan', name: '웨이브온 커피',      category: 'cafe',       lat: 35.1740, lng: 129.2100, description: '송정 해변 앞 서핑 감성 카페',            tags: ['오션뷰', '서핑감성'] },
-  { id: 'busan-8', regionId: 'busan', name: '오션월드 스카이캡슐', category: 'activity',  lat: 35.1762, lng: 129.2137, description: '해변을 달리는 투명 캡슐 열차',            tags: ['이색체험', '오션뷰'] },
+  { id: 'busan-7', regionId: 'busan', name: '웨이브온 커피',      category: 'cafe',       lat: 35.1740, lng: 129.1960, description: '송정 해변 앞 서핑 감성 카페',            tags: ['오션뷰', '서핑감성'] },
+  { id: 'busan-8', regionId: 'busan', name: '오션월드 스카이캡슐', category: 'activity',  lat: 35.1762, lng: 129.1970, description: '해변을 달리는 투명 캡슐 열차',            tags: ['이색체험', '오션뷰'] },
   { id: 'busan-9', regionId: 'busan', name: '송도 해상 케이블카', category: 'activity',   lat: 35.0745, lng: 129.0160, description: '부산 앞바다를 하늘에서 감상',             tags: ['케이블카', '뷰'] },
 
   // ── 경주 ──────────────────────────────────────────────────────────
